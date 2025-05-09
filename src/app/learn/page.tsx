@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import AddVocabulary from '@/components/add-vocabulary'
+import AddDomain from '@/components/add-domain'
 
 type Vocabulary = {
   id: string
@@ -27,6 +28,7 @@ export default function LearnPage() {
   const [error, setError] = useState<string | null>(null)
   const [isSidebarVisible, setIsSidebarVisible] = useState(true)
   const [showAddVocabulary, setShowAddVocabulary] = useState(false)
+  const [showAddDomain, setShowAddDomain] = useState(false)
 
   const fetchDomains = async () => {
     try {
@@ -51,6 +53,7 @@ export default function LearnPage() {
     setSelectedDomain(domainId)
     setCurrentWordIndex(0)
     setShowAddVocabulary(false)
+    setShowAddDomain(false)
   }
 
   const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
@@ -115,46 +118,74 @@ export default function LearnPage() {
           <div className="bg-white p-6 rounded-lg shadow-md">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold">Domains</h2>
-              <button
-                onClick={() => setIsSidebarVisible(!isSidebarVisible)}
-                className="p-2 rounded-md hover:bg-gray-100 transition-colors"
-                title={isSidebarVisible ? "Hide domains" : "Show domains"}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={1.5}
-                  stroke="currentColor"
-                  className="w-5 h-5"
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowAddDomain(!showAddDomain)}
+                  className="p-2 rounded-md hover:bg-gray-100 transition-colors"
+                  title={showAddDomain ? "Hide add domain" : "Add new domain"}
                 >
-                  {isSidebarVisible ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5m-6-15l7.5 7.5-7.5 7.5" />
-                  ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5" />
-                  )}
-                </svg>
-              </button>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={1.5}
+                    stroke="currentColor"
+                    className="w-5 h-5"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 4.5v15m7.5-7.5h-15"
+                    />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setIsSidebarVisible(!isSidebarVisible)}
+                  className="p-2 rounded-md hover:bg-gray-100 transition-colors"
+                  title={isSidebarVisible ? "Hide domains" : "Show domains"}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={1.5}
+                    stroke="currentColor"
+                    className="w-5 h-5"
+                  >
+                    {isSidebarVisible ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5m-6-15l7.5 7.5-7.5 7.5" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5" />
+                    )}
+                  </svg>
+                </button>
+              </div>
             </div>
             <div className={`transition-all duration-300 ${
               isSidebarVisible ? 'block' : 'hidden'
             }`}>
-              <div className="space-y-2">
-                {domains.map((domain) => (
-                  <button
-                    key={domain.id}
-                    onClick={() => handleDomainSelect(domain.id)}
-                    className={`w-full text-left p-3 rounded-md transition-colors ${
-                      selectedDomain === domain.id
-                        ? 'bg-primary-100 text-primary-900'
-                        : 'hover:bg-gray-100'
-                    }`}
-                  >
-                    <h3 className="font-medium">{domain.name}</h3>
-                    <p className="text-sm text-gray-600">{domain.description}</p>
-                  </button>
-                ))}
-              </div>
+              {showAddDomain ? (
+                <div className="mb-4">
+                  <AddDomain onAdd={fetchDomains} />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {domains.map((domain) => (
+                    <button
+                      key={domain.id}
+                      onClick={() => handleDomainSelect(domain.id)}
+                      className={`w-full text-left p-3 rounded-md transition-colors ${
+                        selectedDomain === domain.id
+                          ? 'bg-primary-100 text-primary-900'
+                          : 'hover:bg-gray-100'
+                      }`}
+                    >
+                      <h3 className="font-medium">{domain.name}</h3>
+                      <p className="text-sm text-gray-600">{domain.description}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
