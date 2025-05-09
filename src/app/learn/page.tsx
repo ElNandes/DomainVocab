@@ -2,8 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import AddVocabulary from '@/components/add-vocabulary'
 import AddDomain from '@/components/add-domain'
+import LanguageSettings from '@/components/language-settings'
+import { getTranslation } from '@/lib/translations'
 
 type Vocabulary = {
   id: string
@@ -21,6 +24,7 @@ type Domain = {
 }
 
 export default function LearnPage() {
+  const router = useRouter()
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null)
   const [currentWordIndex, setCurrentWordIndex] = useState(0)
   const [domains, setDomains] = useState<Domain[]>([])
@@ -30,6 +34,16 @@ export default function LearnPage() {
   const [showAddVocabulary, setShowAddVocabulary] = useState(false)
   const [showAddDomain, setShowAddDomain] = useState(false)
   const [speakingId, setSpeakingId] = useState<string | null>(null)
+  const [currentLanguage, setCurrentLanguage] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('language') || 'en'
+    }
+    return 'en'
+  })
+
+  useEffect(() => {
+    localStorage.setItem('language', currentLanguage)
+  }, [currentLanguage])
 
   const fetchDomains = async () => {
     try {
@@ -83,6 +97,7 @@ export default function LearnPage() {
     const utterance = new SpeechSynthesisUtterance(text)
     utterance.rate = 0.9
     utterance.pitch = 1
+    utterance.lang = currentLanguage
 
     utterance.onstart = () => setSpeakingId(id)
     utterance.onend = () => setSpeakingId(null)
@@ -95,12 +110,26 @@ export default function LearnPage() {
   const currentVocabulary = currentDomain?.vocabularies[currentWordIndex]
   const totalWords = currentDomain?.vocabularies.length ?? 0
 
+  const handleLanguageChange = (language: string) => {
+    setCurrentLanguage(language)
+    // Stop any ongoing speech when language changes
+    if (speakingId) {
+      window.speechSynthesis.cancel()
+      setSpeakingId(null)
+    }
+  }
+
+  const handleBackToHome = (e: React.MouseEvent) => {
+    e.preventDefault()
+    router.push('/')
+  }
+
   if (isLoading) {
     return (
       <main className="min-h-screen p-8">
         <div className="max-w-6xl mx-auto">
           <div className="flex justify-center items-center h-[calc(100vh-12rem)]">
-            <p className="text-gray-600">Loading vocabulary...</p>
+            <p className="text-gray-600">{getTranslation('loading', currentLanguage)}</p>
           </div>
         </div>
       </main>
@@ -112,7 +141,7 @@ export default function LearnPage() {
       <main className="min-h-screen p-8">
         <div className="max-w-6xl mx-auto">
           <div className="flex justify-center items-center h-[calc(100vh-12rem)]">
-            <p className="text-red-600">Error: {error}</p>
+            <p className="text-red-600">{getTranslation('error', currentLanguage)}: {error}</p>
           </div>
         </div>
       </main>
@@ -123,13 +152,19 @@ export default function LearnPage() {
     <main className="min-h-screen p-8">
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">Learning Dashboard</h1>
-          <Link 
-            href="/"
-            className="text-primary-600 hover:text-primary-700"
-          >
-            Back to Home
-          </Link>
+          <h1 className="text-3xl font-bold">{getTranslation('learning-dashboard', currentLanguage)}</h1>
+          <div className="flex items-center gap-4">
+            <LanguageSettings
+              currentLanguage={currentLanguage}
+              onLanguageChange={setCurrentLanguage}
+            />
+            <Link 
+              href="/"
+              className="text-primary-600 hover:text-primary-700"
+            >
+              {getTranslation('back-to-home', currentLanguage)}
+            </Link>
+          </div>
         </div>
 
         <div className={`grid gap-8 transition-all duration-300 ${
@@ -138,13 +173,13 @@ export default function LearnPage() {
           {/* Domains Sidebar */}
           <div className="bg-white p-6 rounded-lg shadow-md">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Domains</h2>
+              <h2 className="text-xl font-semibold">{getTranslation('domains', currentLanguage)}</h2>
               <div className="flex gap-2">
                 {isSidebarVisible && (
                   <button
                     onClick={() => setShowAddDomain(!showAddDomain)}
                     className="p-2 rounded-md hover:bg-gray-100 transition-colors"
-                    title={showAddDomain ? "Hide add domain" : "Add new domain"}
+                    title={showAddDomain ? getTranslation('hide-domains', currentLanguage) : getTranslation('add-domain', currentLanguage)}
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -178,7 +213,7 @@ export default function LearnPage() {
                     }
                   }}
                   className="p-2 rounded-md hover:bg-gray-100 transition-colors"
-                  title={isSidebarVisible ? "Hide domains" : "Show domains"}
+                  title={isSidebarVisible ? getTranslation('hide-domains', currentLanguage) : getTranslation('show-domains', currentLanguage)}
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -237,7 +272,7 @@ export default function LearnPage() {
                       onClick={() => setShowAddVocabulary(!showAddVocabulary)}
                       className="text-primary-600 hover:text-primary-700"
                     >
-                      {showAddVocabulary ? 'Hide Add Vocabulary' : 'Add New Vocabulary'}
+                      {showAddVocabulary ? getTranslation('hide-add-vocabulary', currentLanguage) : getTranslation('add-vocabulary', currentLanguage)}
                     </button>
                   </div>
                 )}
@@ -268,7 +303,7 @@ export default function LearnPage() {
                                 className={`p-2 rounded-full transition-colors ${
                                   speakingId === `def-${vocab.id}` ? 'bg-primary-100' : 'hover:bg-gray-100'
                                 }`}
-                                title={speakingId === `def-${vocab.id}` ? "Stop reading" : "Read definition"}
+                                title={speakingId === `def-${vocab.id}` ? getTranslation('stop-reading', currentLanguage) : getTranslation('read-definition', currentLanguage)}
                               >
                                 <svg
                                   xmlns="http://www.w3.org/2000/svg"
@@ -299,7 +334,7 @@ export default function LearnPage() {
                             <p className="text-gray-600 text-lg mb-6">{vocab.definition}</p>
                             {vocab.examples.length > 0 && (
                               <div>
-                                <p className="text-sm font-medium text-gray-700 mb-2">Examples:</p>
+                                <p className="text-sm font-medium text-gray-700 mb-2">{getTranslation('examples', currentLanguage)}:</p>
                                 <ul className="space-y-2">
                                   {vocab.examples.map((example: string, index: number) => (
                                     <li key={index} className="flex items-start gap-2 text-gray-600">
@@ -309,7 +344,7 @@ export default function LearnPage() {
                                         className={`p-1.5 rounded-full transition-colors ${
                                           speakingId === `ex-${vocab.id}-${index}` ? 'bg-primary-100' : 'hover:bg-gray-100'
                                         }`}
-                                        title={speakingId === `ex-${vocab.id}-${index}` ? "Stop reading" : "Read example"}
+                                        title={speakingId === `ex-${vocab.id}-${index}` ? getTranslation('stop-reading', currentLanguage) : getTranslation('read-example', currentLanguage)}
                                       >
                                         <svg
                                           xmlns="http://www.w3.org/2000/svg"
@@ -353,7 +388,7 @@ export default function LearnPage() {
               </>
             ) : (
               <div className="h-[calc(100vh-12rem)] flex items-center justify-center">
-                <p className="text-gray-600">Select a domain to view vocabulary</p>
+                <p className="text-gray-600">{getTranslation('select-domain', currentLanguage)}</p>
               </div>
             )}
           </div>
