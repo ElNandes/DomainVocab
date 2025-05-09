@@ -60,11 +60,13 @@ export default function LearnPage() {
     const container = event.currentTarget
     const scrollPosition = container.scrollTop
     const cardHeight = container.clientHeight
-    const newIndex = Math.round(scrollPosition / cardHeight)
+    const scrollPercentage = scrollPosition / cardHeight
+    const totalCards = currentDomain?.vocabularies.length ?? 0
     
-    if (selectedDomain && newIndex !== currentWordIndex) {
-      const domain = domains.find(d => d.id === selectedDomain)
-      if (domain && newIndex >= 0 && newIndex < domain.vocabularies.length) {
+    if (selectedDomain && totalCards > 0) {
+      // Calculate the current index based on scroll percentage
+      const newIndex = Math.floor(scrollPercentage * totalCards)
+      if (newIndex >= 0 && newIndex < totalCards && newIndex !== currentWordIndex) {
         setCurrentWordIndex(newIndex)
       }
     }
@@ -230,13 +232,13 @@ export default function LearnPage() {
                   </div>
                 ) : (
                   <div 
-                    className="h-[calc(100vh-12rem)] overflow-y-auto snap-y snap-mandatory"
+                    className="h-[calc(100vh-12rem)] overflow-y-auto"
                     onScroll={handleScroll}
                   >
                     {currentDomain?.vocabularies.map((vocab, index) => (
                       <div 
                         key={vocab.id}
-                        className="h-[calc(100vh-12rem)] snap-start flex items-center justify-center p-8"
+                        className="h-[calc(100vh-12rem)] flex items-center justify-center p-8"
                       >
                         <div className="w-full max-w-md aspect-[9/16] bg-white rounded-xl shadow-lg p-8 flex flex-col">
                           <div className="flex-1">
