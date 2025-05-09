@@ -8,88 +8,41 @@ type Vocabulary = {
   word: string
   definition: string
   examples: string[]
+  domainId: string
 }
 
 type Domain = {
   id: string
   name: string
   description: string
-}
-
-type Vocabularies = {
-  [key: string]: Vocabulary[]
-}
-
-// Generate dummy vocabulary entries
-const generateDummyVocabularies = (): Vocabularies => {
-  const techTerms = [
-    'Algorithm', 'API', 'Cloud Computing', 'Database', 'Encryption',
-    'Firewall', 'Gateway', 'Hash', 'Interface', 'JavaScript',
-    'Kernel', 'Latency', 'Middleware', 'Network', 'Operating System',
-    'Protocol', 'Query', 'Router', 'Server', 'Token',
-    'URL', 'Virtual Machine', 'WebSocket', 'XML', 'YAML',
-    'Zero-day', 'Backend', 'Cache', 'DNS', 'Endpoint',
-    'Framework', 'GraphQL', 'Hosting', 'IP Address', 'JSON',
-    'Key-value Store', 'Load Balancer', 'Microservice', 'Node.js', 'OAuth',
-    'Proxy', 'Queue', 'REST', 'SSL', 'TypeScript'
-  ]
-
-  const businessTerms = [
-    'ROI', 'KPI', 'B2B', 'B2C', 'CRM',
-    'ERP', 'SaaS', 'PaaS', 'IaaS', 'MVP',
-    'SLA', 'SOW', 'RFP', 'RFQ', 'NDA',
-    'IPO', 'M&A', 'P&L', 'EBITDA', 'ROE',
-    'ROA', 'DCF', 'NPV', 'IRR', 'WACC',
-    'CAPEX', 'OPEX', 'COGS', 'EBIT', 'EPS',
-    'P/E Ratio', 'D/E Ratio', 'Quick Ratio', 'Current Ratio', 'Working Capital',
-    'Cash Flow', 'Balance Sheet', 'Income Statement', 'Cash Flow Statement', 'Trial Balance',
-    'General Ledger', 'Chart of Accounts', 'Double Entry', 'Accrual', 'Depreciation'
-  ]
-
-  const scienceTerms = [
-    'Hypothesis', 'Molecule', 'Atom', 'Element', 'Compound',
-    'Reaction', 'Catalyst', 'Enzyme', 'Protein', 'DNA',
-    'RNA', 'Cell', 'Tissue', 'Organ', 'System',
-    'Ecosystem', 'Species', 'Genus', 'Family', 'Order',
-    'Class', 'Phylum', 'Kingdom', 'Domain', 'Evolution',
-    'Mutation', 'Gene', 'Chromosome', 'Genome', 'Phenotype',
-    'Genotype', 'Allele', 'Dominant', 'Recessive', 'Heterozygous',
-    'Homozygous', 'Mitosis', 'Meiosis', 'Gamete', 'Zygote',
-    'Embryo', 'Fetus', 'Organism', 'Population', 'Community'
-  ]
-
-  const createVocabularyEntry = (word: string, domain: string): Vocabulary => ({
-    id: `${domain}-${word}`,
-    word,
-    definition: `Definition of ${word} in ${domain} context. This is a detailed explanation of the term and its significance.`,
-    examples: [
-      `Example 1: Using ${word} in a practical scenario.`,
-      `Example 2: Another application of ${word} in real-world context.`
-    ]
-  })
-
-  return {
-    '1': techTerms.map(term => createVocabularyEntry(term, 'Technology')),
-    '2': businessTerms.map(term => createVocabularyEntry(term, 'Business')),
-    '3': scienceTerms.map(term => createVocabularyEntry(term, 'Science'))
-  }
+  vocabularies: Vocabulary[]
 }
 
 export default function LearnPage() {
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null)
   const [currentWordIndex, setCurrentWordIndex] = useState(0)
-  const [vocabularies, setVocabularies] = useState<Vocabularies>({})
+  const [domains, setDomains] = useState<Domain[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [isSidebarVisible, setIsSidebarVisible] = useState(true)
 
-  // Temporary mock data
-  const domains: Domain[] = [
-    { id: '1', name: 'Technology', description: 'Tech-related vocabulary' },
-    { id: '2', name: 'Business', description: 'Business and finance terms' },
-    { id: '3', name: 'Science', description: 'Scientific terminology' },
-  ]
-
   useEffect(() => {
-    setVocabularies(generateDummyVocabularies())
+    const fetchDomains = async () => {
+      try {
+        const response = await fetch('/api/vocabulary')
+        if (!response.ok) {
+          throw new Error('Failed to fetch vocabulary')
+        }
+        const data = await response.json()
+        setDomains(data)
+        setIsLoading(false)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred')
+        setIsLoading(false)
+      }
+    }
+
+    fetchDomains()
   }, [])
 
   const handleDomainSelect = (domainId: string) => {
@@ -103,13 +56,41 @@ export default function LearnPage() {
     const cardHeight = container.clientHeight
     const newIndex = Math.round(scrollPosition / cardHeight)
     
-    if (selectedDomain && newIndex !== currentWordIndex && newIndex >= 0 && newIndex < vocabularies[selectedDomain].length) {
-      setCurrentWordIndex(newIndex)
+    if (selectedDomain && newIndex !== currentWordIndex) {
+      const domain = domains.find(d => d.id === selectedDomain)
+      if (domain && newIndex >= 0 && newIndex < domain.vocabularies.length) {
+        setCurrentWordIndex(newIndex)
+      }
     }
   }
 
-  const currentVocabulary = selectedDomain ? vocabularies[selectedDomain][currentWordIndex] : null
-  const totalWords = selectedDomain ? vocabularies[selectedDomain].length : 0
+  const currentDomain = selectedDomain ? domains.find(d => d.id === selectedDomain) : null
+  const currentVocabulary = currentDomain?.vocabularies[currentWordIndex]
+  const totalWords = currentDomain?.vocabularies.length ?? 0
+
+  if (isLoading) {
+    return (
+      <main className="min-h-screen p-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex justify-center items-center h-[calc(100vh-12rem)]">
+            <p className="text-gray-600">Loading vocabulary...</p>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
+  if (error) {
+    return (
+      <main className="min-h-screen p-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex justify-center items-center h-[calc(100vh-12rem)]">
+            <p className="text-red-600">Error: {error}</p>
+          </div>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main className="min-h-screen p-8">
@@ -183,7 +164,7 @@ export default function LearnPage() {
                 className="h-[calc(100vh-12rem)] overflow-y-auto snap-y snap-mandatory"
                 onScroll={handleScroll}
               >
-                {vocabularies[selectedDomain].map((vocab, index) => (
+                {currentDomain?.vocabularies.map((vocab, index) => (
                   <div 
                     key={vocab.id}
                     className="h-[calc(100vh-12rem)] snap-start flex items-center justify-center p-8"

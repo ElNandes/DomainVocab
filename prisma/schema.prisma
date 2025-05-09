@@ -12,11 +12,11 @@ datasource db {
 
 model Domain {
   id          String       @id @default(cuid())
-  name        String
-  description String?
+  name        String       @unique
+  description String
+  vocabularies Vocabulary[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
-  vocabulary  Vocabulary[]
 }
 
 model Vocabulary {
@@ -24,9 +24,8 @@ model Vocabulary {
   word        String
   definition  String
   examples    String[]
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
   domain      Domain   @relation(fields: [domainId], references: [id])
   domainId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 } 
