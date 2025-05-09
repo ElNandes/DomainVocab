@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import AddVocabulary from '@/components/add-vocabulary'
 import AddDomain from '@/components/add-domain'
-import LanguageSettings from '@/components/language-settings'
+import { LanguageSettings } from '@/components/language-settings'
 import { getTranslation } from '@/lib/translations'
 
 type Vocabulary = {
@@ -28,41 +28,49 @@ export default function LearnPage() {
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null)
   const [currentWordIndex, setCurrentWordIndex] = useState(0)
   const [domains, setDomains] = useState<Domain[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isSidebarVisible, setIsSidebarVisible] = useState(true)
   const [showAddVocabulary, setShowAddVocabulary] = useState(false)
   const [showAddDomain, setShowAddDomain] = useState(false)
   const [speakingId, setSpeakingId] = useState<string | null>(null)
-  const [currentLanguage, setCurrentLanguage] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('language') || 'en'
-    }
-    return 'en'
-  })
+  const [currentLanguage, setCurrentLanguage] = useState<'en' | 'de' | 'es'>('en')
+  const [isSpeaking, setIsSpeaking] = useState(false)
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    localStorage.setItem('language', currentLanguage)
-  }, [currentLanguage])
+    const savedLanguage = localStorage.getItem('language') as 'en' | 'de' | 'es'
+    if (savedLanguage) {
+      setCurrentLanguage(savedLanguage)
+    }
+  }, [])
+
+  const handleLanguageChange = (lang: 'en' | 'de' | 'es') => {
+    if (speakingId) {
+      window.speechSynthesis.cancel()
+      setSpeakingId(null)
+    }
+    setCurrentLanguage(lang)
+    localStorage.setItem('language', lang)
+    setIsDropdownOpen(false)
+  }
 
   const fetchDomains = async () => {
     try {
-      setIsLoading(true)
+      setLoading(true)
       setError(null)
-      console.log('Fetching domains for language:', currentLanguage)
       const response = await fetch(`/api/vocabulary?language=${currentLanguage}`)
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.details || errorData.error || 'Failed to fetch vocabulary')
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
       const data = await response.json()
-      console.log('Received domains:', data.length)
       setDomains(data)
     } catch (err) {
-      console.error('Error fetching domains:', err)
-      setError(err instanceof Error ? err.message : 'Failed to fetch vocabulary')
+      console.error('Error fetching vocabulary:', err)
+      setError(getTranslation('error.fetch', currentLanguage))
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
@@ -116,21 +124,12 @@ export default function LearnPage() {
   const currentVocabulary = currentDomain?.vocabularies[currentWordIndex]
   const totalWords = currentDomain?.vocabularies.length ?? 0
 
-  const handleLanguageChange = (language: string) => {
-    setCurrentLanguage(language)
-    // Stop any ongoing speech when language changes
-    if (speakingId) {
-      window.speechSynthesis.cancel()
-      setSpeakingId(null)
-    }
-  }
-
   const handleBackToHome = (e: React.MouseEvent) => {
     e.preventDefault()
     router.push('/')
   }
 
-  if (isLoading) {
+  if (loading) {
     return (
       <main className="min-h-screen p-8">
         <div className="max-w-6xl mx-auto">
@@ -162,7 +161,7 @@ export default function LearnPage() {
           <div className="flex items-center gap-4">
             <LanguageSettings
               currentLanguage={currentLanguage}
-              onLanguageChange={setCurrentLanguage}
+              onLanguageChange={handleLanguageChange}
             />
             <Link 
               href="/"
