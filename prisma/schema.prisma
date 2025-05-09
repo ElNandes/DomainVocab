@@ -20,15 +20,15 @@ model Domain {
 }
 
 model Vocabulary {
-  id          String   @id @default(cuid())
-  word        String
-  definition  String
-  examples    String[]
-  language    String   @default("en")
-  domain      Domain   @relation(fields: [domainId], references: [id])
-  domainId    String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  word       String
+  definition String
+  examples   String[]
+  language   String   @default("en")
+  domain     Domain   @relation(fields: [domainId], references: [id])
+  domainId   String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@unique([word, domainId, language])
 }

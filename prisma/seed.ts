@@ -13,6 +13,24 @@ async function main() {
     },
   })
 
+  const business = await prisma.domain.upsert({
+    where: { name: 'Business' },
+    update: {},
+    create: {
+      name: 'Business',
+      description: 'Business and commerce vocabulary',
+    },
+  })
+
+  const science = await prisma.domain.upsert({
+    where: { name: 'Science' },
+    update: {},
+    create: {
+      name: 'Science',
+      description: 'Scientific terminology',
+    },
+  })
+
   // Create vocabulary for English
   try {
     await prisma.vocabulary.create({
@@ -28,8 +46,8 @@ async function main() {
     console.log('English vocabulary already exists')
   }
 
-  // German vocabulary
-  const germanVocabulary = [
+  // German vocabulary for Technology
+  const germanTechVocabulary = [
     {
       word: 'Algorithmus',
       definition: 'Eine Reihe von Regeln oder Anweisungen, die einem Computer gegeben werden, um ein Problem zu lösen',
@@ -44,46 +62,49 @@ async function main() {
       word: 'Verschlüsselung',
       definition: 'Der Prozess der Umwandlung von Informationen in einen sicheren Code',
       examples: ['Die Nachricht wurde mit starker Verschlüsselung geschützt.'],
-    },
-    {
-      word: 'Firewall',
-      definition: 'Ein Netzwerksicherheitssystem, das den Datenverkehr überwacht und filtert',
-      examples: ['Die Firewall blockierte verdächtige Verbindungen.'],
-    },
-    {
-      word: 'Programmierung',
-      definition: 'Der Prozess der Erstellung von Computerprogrammen',
-      examples: ['Sie lernt Programmierung an der Universität.'],
-    },
-    {
-      word: 'Netzwerk',
-      definition: 'Ein System von miteinander verbundenen Computern oder Geräten',
-      examples: ['Das Unternehmen hat ein großes Netzwerk von Servern.'],
-    },
-    {
-      word: 'Software',
-      definition: 'Programme und Anwendungen, die auf einem Computer ausgeführt werden',
-      examples: ['Die neue Software verbessert die Produktivität.'],
-    },
-    {
-      word: 'Hardware',
-      definition: 'Die physischen Komponenten eines Computersystems',
-      examples: ['Die Hardware muss regelmäßig gewartet werden.'],
-    },
-    {
-      word: 'Benutzeroberfläche',
-      definition: 'Der Teil eines Programms, mit dem Benutzer interagieren',
-      examples: ['Die Benutzeroberfläche ist intuitiv und benutzerfreundlich.'],
-    },
-    {
-      word: 'Server',
-      definition: 'Ein Computer oder System, das Ressourcen für andere Computer bereitstellt',
-      examples: ['Der Server verarbeitet tausende Anfragen pro Minute.'],
     }
   ]
 
-  // Spanish vocabulary
-  const spanishVocabulary = [
+  // German vocabulary for Business
+  const germanBusinessVocabulary = [
+    {
+      word: 'Marketing',
+      definition: 'Die Aktivitäten zur Förderung und zum Verkauf von Produkten oder Dienstleistungen',
+      examples: ['Das Marketing-Team entwickelte eine neue Werbekampagne.'],
+    },
+    {
+      word: 'Investition',
+      definition: 'Die Verwendung von Geld oder Kapital, um Einkommen oder Gewinn zu erzielen',
+      examples: ['Die Firma plant eine große Investition in neue Technologien.'],
+    },
+    {
+      word: 'Geschäftsmodell',
+      definition: 'Ein Plan für die erfolgreiche Führung eines Unternehmens',
+      examples: ['Das neue Geschäftsmodell konzentriert sich auf Online-Verkäufe.'],
+    }
+  ]
+
+  // German vocabulary for Science
+  const germanScienceVocabulary = [
+    {
+      word: 'Hypothese',
+      definition: 'Eine wissenschaftliche Annahme, die durch Experimente überprüft werden kann',
+      examples: ['Die Wissenschaftler testeten ihre Hypothese in mehreren Experimenten.'],
+    },
+    {
+      word: 'Experiment',
+      definition: 'Eine kontrollierte Untersuchung zur Überprüfung einer Hypothese',
+      examples: ['Das Experiment bestätigte die ursprüngliche Theorie.'],
+    },
+    {
+      word: 'Theorie',
+      definition: 'Ein System von Ideen zur Erklärung bestimmter Phänomene',
+      examples: ['Die Evolutionstheorie wurde durch zahlreiche Beweise gestützt.'],
+    }
+  ]
+
+  // Spanish vocabulary for Technology
+  const spanishTechVocabulary = [
     {
       word: 'algoritmo',
       definition: 'Un conjunto de reglas o instrucciones dadas a una computadora para ayudarla a resolver un problema',
@@ -98,46 +119,49 @@ async function main() {
       word: 'encriptación',
       definition: 'El proceso de convertir información en un código seguro',
       examples: ['El mensaje estaba protegido con encriptación fuerte.'],
+    }
+  ]
+
+  // Spanish vocabulary for Business
+  const spanishBusinessVocabulary = [
+    {
+      word: 'marketing',
+      definition: 'Las actividades para promover y vender productos o servicios',
+      examples: ['El equipo de marketing desarrolló una nueva campaña publicitaria.'],
     },
     {
-      word: 'cortafuegos',
-      definition: 'Un sistema de seguridad de red que monitorea y filtra el tráfico',
-      examples: ['El cortafuegos bloqueó conexiones sospechosas.'],
+      word: 'inversión',
+      definition: 'El uso de dinero o capital para obtener ingresos o ganancias',
+      examples: ['La empresa planea una gran inversión en nuevas tecnologías.'],
     },
     {
-      word: 'programación',
-      definition: 'El proceso de crear programas informáticos',
-      examples: ['Está aprendiendo programación en la universidad.'],
+      word: 'modelo de negocio',
+      definition: 'Un plan para el funcionamiento exitoso de una empresa',
+      examples: ['El nuevo modelo de negocio se centra en las ventas en línea.'],
+    }
+  ]
+
+  // Spanish vocabulary for Science
+  const spanishScienceVocabulary = [
+    {
+      word: 'hipótesis',
+      definition: 'Una suposición científica que puede ser verificada mediante experimentos',
+      examples: ['Los científicos probaron su hipótesis en varios experimentos.'],
     },
     {
-      word: 'red',
-      definition: 'Un sistema de computadoras o dispositivos interconectados',
-      examples: ['La empresa tiene una gran red de servidores.'],
+      word: 'experimento',
+      definition: 'Una investigación controlada para verificar una hipótesis',
+      examples: ['El experimento confirmó la teoría original.'],
     },
     {
-      word: 'software',
-      definition: 'Programas y aplicaciones que se ejecutan en una computadora',
-      examples: ['El nuevo software mejora la productividad.'],
-    },
-    {
-      word: 'hardware',
-      definition: 'Los componentes físicos de un sistema informático',
-      examples: ['El hardware necesita mantenimiento regular.'],
-    },
-    {
-      word: 'interfaz de usuario',
-      definition: 'La parte de un programa con la que interactúan los usuarios',
-      examples: ['La interfaz de usuario es intuitiva y fácil de usar.'],
-    },
-    {
-      word: 'servidor',
-      definition: 'Una computadora o sistema que proporciona recursos a otras computadoras',
-      examples: ['El servidor procesa miles de solicitudes por minuto.'],
+      word: 'teoría',
+      definition: 'Un sistema de ideas para explicar ciertos fenómenos',
+      examples: ['La teoría de la evolución fue respaldada por numerosas pruebas.'],
     }
   ]
 
   // Create German vocabulary
-  for (const vocab of germanVocabulary) {
+  for (const vocab of germanTechVocabulary) {
     try {
       await prisma.vocabulary.create({
         data: {
@@ -147,12 +171,40 @@ async function main() {
         },
       })
     } catch (error) {
-      console.log(`German vocabulary "${vocab.word}" already exists`)
+      console.log(`German technology vocabulary "${vocab.word}" already exists`)
+    }
+  }
+
+  for (const vocab of germanBusinessVocabulary) {
+    try {
+      await prisma.vocabulary.create({
+        data: {
+          ...vocab,
+          language: 'de',
+          domainId: business.id,
+        },
+      })
+    } catch (error) {
+      console.log(`German business vocabulary "${vocab.word}" already exists`)
+    }
+  }
+
+  for (const vocab of germanScienceVocabulary) {
+    try {
+      await prisma.vocabulary.create({
+        data: {
+          ...vocab,
+          language: 'de',
+          domainId: science.id,
+        },
+      })
+    } catch (error) {
+      console.log(`German science vocabulary "${vocab.word}" already exists`)
     }
   }
 
   // Create Spanish vocabulary
-  for (const vocab of spanishVocabulary) {
+  for (const vocab of spanishTechVocabulary) {
     try {
       await prisma.vocabulary.create({
         data: {
@@ -162,7 +214,35 @@ async function main() {
         },
       })
     } catch (error) {
-      console.log(`Spanish vocabulary "${vocab.word}" already exists`)
+      console.log(`Spanish technology vocabulary "${vocab.word}" already exists`)
+    }
+  }
+
+  for (const vocab of spanishBusinessVocabulary) {
+    try {
+      await prisma.vocabulary.create({
+        data: {
+          ...vocab,
+          language: 'es',
+          domainId: business.id,
+        },
+      })
+    } catch (error) {
+      console.log(`Spanish business vocabulary "${vocab.word}" already exists`)
+    }
+  }
+
+  for (const vocab of spanishScienceVocabulary) {
+    try {
+      await prisma.vocabulary.create({
+        data: {
+          ...vocab,
+          language: 'es',
+          domainId: science.id,
+        },
+      })
+    } catch (error) {
+      console.log(`Spanish science vocabulary "${vocab.word}" already exists`)
     }
   }
 }
