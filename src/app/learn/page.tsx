@@ -47,22 +47,28 @@ export default function LearnPage() {
 
   const fetchDomains = async () => {
     try {
-      const response = await fetch('/api/vocabulary')
+      setIsLoading(true)
+      setError(null)
+      console.log('Fetching domains for language:', currentLanguage)
+      const response = await fetch(`/api/vocabulary?language=${currentLanguage}`)
       if (!response.ok) {
-        throw new Error('Failed to fetch vocabulary')
+        const errorData = await response.json()
+        throw new Error(errorData.details || errorData.error || 'Failed to fetch vocabulary')
       }
       const data = await response.json()
+      console.log('Received domains:', data.length)
       setDomains(data)
-      setIsLoading(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
+      console.error('Error fetching domains:', err)
+      setError(err instanceof Error ? err.message : 'Failed to fetch vocabulary')
+    } finally {
       setIsLoading(false)
     }
   }
 
   useEffect(() => {
     fetchDomains()
-  }, [])
+  }, [currentLanguage])
 
   const handleDomainSelect = (domainId: string) => {
     setSelectedDomain(domainId)
@@ -282,6 +288,7 @@ export default function LearnPage() {
                     <AddVocabulary
                       domains={domains.map(d => ({ id: d.id, name: d.name }))}
                       onAdd={fetchDomains}
+                      currentLanguage={currentLanguage}
                     />
                   </div>
                 ) : (

@@ -1,6 +1,9 @@
 "use client"
 
 import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import * as z from 'zod'
 
 type DictionaryResponse = {
   word: string
@@ -14,74 +17,62 @@ type DictionaryResponse = {
   }[]
 }
 
-type AddVocabularyProps = {
-  domains: {
-    id: string
-    name: string
-  }[]
-  onAdd: () => void
+type Domain = {
+  id: string
+  name: string
 }
 
-export default function AddVocabulary({ domains, onAdd }: AddVocabularyProps) {
-  const [searchTerm, setSearchTerm] = useState('')
+type AddVocabularyProps = {
+  domains: Domain[]
+  onAdd: () => void
+  currentLanguage: string
+}
+
+const schema = z.object({
+  domainId: z.string().min(1, 'Please select a domain'),
+  word: z.string().min(1, 'Word is required'),
+  definition: z.string().min(1, 'Definition is required'),
+  examples: z.array(z.string()).optional(),
+})
+
+type FormData = z.infer<typeof schema>
+
+export default function AddVocabulary({ domains, onAdd, currentLanguage }: AddVocabularyProps) {
   const [isSearching, setIsSearching] = useState(false)
-  const [searchResults, setSearchResults] = useState<DictionaryResponse | null>(null)
-  const [selectedDomain, setSelectedDomain] = useState('')
+  const [searchResults, setSearchResults] = useState<any[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [customDefinition, setCustomDefinition] = useState('')
-  const [customExamples, setCustomExamples] = useState<string[]>([''])
 
-  const searchWord = async () => {
-    if (!searchTerm.trim()) return
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<FormData>({
+    resolver: zodResolver(schema),
+  })
 
+  const wordValue = watch('word')
+
+  const searchWord = async (word: string) => {
+    if (!word.trim()) return
     setIsSearching(true)
     setError(null)
     try {
-      // Try Free Dictionary API first
-      const response = await fetch(
-        `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(searchTerm)}`
-      )
-      
+      const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`)
       if (!response.ok) {
-        // If word not found, allow manual entry
-        setSearchResults({
-          word: searchTerm,
-          phonetic: '',
-          meanings: [{
-            partOfSpeech: '',
-            definitions: [{
-              definition: '',
-              example: ''
-            }]
-          }]
-        })
-        setCustomDefinition('')
-        setCustomExamples([''])
-        return
+        throw new Error('Word not found')
       }
-
       const data = await response.json()
-      setSearchResults(data[0])
-      // Pre-fill custom definition and examples
-      setCustomDefinition(data[0].meanings[0].definitions[0].definition)
-      setCustomExamples(
-        data[0].meanings
-          .flatMap((meaning: { definitions: { example?: string }[] }) => meaning.definitions)
-          .filter((def: { example?: string }) => def.example)
-          .map((def: { example: string }) => def.example)
-          .slice(0, 2)
-      )
+      setSearchResults(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch word definition')
-      setSearchResults(null)
-    } finally {
-      setIsSearching(false)
+      setError('Word not found in dictionary. Please enter the definition manually.')
+      setSearchResults([])
     }
+    setIsSearching(false)
   }
 
-  const addVocabulary = async () => {
-    if (!searchResults || !selectedDomain) return
-
+  const onSubmit = async (data: FormData) => {
     try {
       const response = await fetch('/api/vocabulary', {
         method: 'POST',
@@ -89,10 +80,8 @@ export default function AddVocabulary({ domains, onAdd }: AddVocabularyProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          domainId: selectedDomain,
-          word: searchResults.word,
-          definition: customDefinition || searchResults.meanings[0].definitions[0].definition,
-          examples: customExamples.filter(ex => ex.trim() !== ''),
+          ...data,
+          language: currentLanguage,
         }),
       })
 
@@ -100,145 +89,148 @@ export default function AddVocabulary({ domains, onAdd }: AddVocabularyProps) {
         throw new Error('Failed to add vocabulary')
       }
 
-      // Reset form
-      setSearchTerm('')
-      setSearchResults(null)
-      setSelectedDomain('')
-      setCustomDefinition('')
-      setCustomExamples([''])
-      onAdd() // Notify parent to refresh vocabulary list
+      onAdd()
+      setValue('word', '')
+      setValue('definition', '')
+      setValue('examples', [])
+      setSearchResults([])
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add vocabulary')
+      setError(err instanceof Error ? err.message : 'An error occurred')
     }
   }
 
-  const addExampleField = () => {
-    setCustomExamples([...customExamples, ''])
-  }
-
-  const updateExample = (index: number, value: string) => {
-    const newExamples = [...customExamples]
-    newExamples[index] = value
-    setCustomExamples(newExamples)
-  }
-
-  const removeExample = (index: number) => {
-    setCustomExamples(customExamples.filter((_, i) => i !== index))
-  }
-
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
-      <h2 className="text-xl font-semibold mb-4">Add New Vocabulary</h2>
-      
-      <div className="space-y-4">
-        <div>
-          <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-1">
-            Search Word
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              id="search"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && searchWord()}
-              className="flex-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-              placeholder="Enter a word to search"
-            />
-            <button
-              onClick={searchWord}
-              disabled={isSearching}
-              className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 disabled:opacity-50"
-            >
-              {isSearching ? 'Searching...' : 'Search'}
-            </button>
-          </div>
-        </div>
-
-        {error && (
-          <p className="text-red-600 text-sm">{error}</p>
-        )}
-
-        {searchResults && (
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="domain" className="block text-sm font-medium text-gray-700 mb-1">
-                Select Domain
-              </label>
-              <select
-                id="domain"
-                value={selectedDomain}
-                onChange={(e) => setSelectedDomain(e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-              >
-                <option value="">Select a domain</option>
-                {domains.map((domain) => (
-                  <option key={domain.id} value={domain.id}>
-                    {domain.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="bg-gray-50 p-4 rounded-md">
-              <h3 className="font-medium text-lg mb-2">{searchResults.word}</h3>
-              
-              <div className="mb-4">
-                <label htmlFor="definition" className="block text-sm font-medium text-gray-700 mb-1">
-                  Definition
-                </label>
-                <textarea
-                  id="definition"
-                  value={customDefinition}
-                  onChange={(e) => setCustomDefinition(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  rows={3}
-                  placeholder="Enter or edit the definition"
-                />
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Examples
-                </label>
-                {customExamples.map((example, index) => (
-                  <div key={index} className="flex gap-2 mb-2">
-                    <input
-                      type="text"
-                      value={example}
-                      onChange={(e) => updateExample(index, e.target.value)}
-                      className="flex-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      placeholder={`Example ${index + 1}`}
-                    />
-                    {customExamples.length > 1 && (
-                      <button
-                        onClick={() => removeExample(index)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                ))}
-                <button
-                  onClick={addExampleField}
-                  className="text-primary-600 hover:text-primary-700 text-sm"
-                >
-                  + Add Example
-                </button>
-              </div>
-            </div>
-
-            <button
-              onClick={addVocabulary}
-              disabled={!selectedDomain || !customDefinition.trim()}
-              className="w-full bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 disabled:opacity-50"
-            >
-              Add to Vocabulary
-            </button>
-          </div>
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <div>
+        <label htmlFor="domainId" className="block text-sm font-medium text-gray-700">
+          Domain
+        </label>
+        <select
+          id="domainId"
+          {...register('domainId')}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+        >
+          <option value="">Select a domain</option>
+          {domains.map((domain) => (
+            <option key={domain.id} value={domain.id}>
+              {domain.name}
+            </option>
+          ))}
+        </select>
+        {errors.domainId && (
+          <p className="mt-1 text-sm text-red-600">{errors.domainId.message}</p>
         )}
       </div>
-    </div>
+
+      <div>
+        <label htmlFor="word" className="block text-sm font-medium text-gray-700">
+          Word
+        </label>
+        <div className="mt-1 flex rounded-md shadow-sm">
+          <input
+            type="text"
+            id="word"
+            {...register('word')}
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+            placeholder="Enter a word"
+          />
+          <button
+            type="button"
+            onClick={() => searchWord(wordValue)}
+            disabled={isSearching}
+            className="ml-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+          >
+            {isSearching ? 'Searching...' : 'Search'}
+          </button>
+        </div>
+        {errors.word && (
+          <p className="mt-1 text-sm text-red-600">{errors.word.message}</p>
+        )}
+      </div>
+
+      {searchResults.length > 0 && (
+        <div className="mt-4">
+          <h3 className="text-lg font-medium text-gray-900">Search Results</h3>
+          <div className="mt-2 space-y-4">
+            {searchResults.map((result, index) => (
+              <div
+                key={index}
+                className="p-4 border rounded-md cursor-pointer hover:bg-gray-50"
+                onClick={() => {
+                  setValue('word', result.word)
+                  setValue('definition', result.meanings[0].definitions[0].definition)
+                  setValue('examples', [result.meanings[0].definitions[0].example].filter(Boolean))
+                  setSearchResults([])
+                }}
+              >
+                <h4 className="font-medium">{result.word}</h4>
+                <p className="text-sm text-gray-600">{result.meanings[0].definitions[0].definition}</p>
+                {result.meanings[0].definitions[0].example && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    Example: {result.meanings[0].definitions[0].example}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <label htmlFor="definition" className="block text-sm font-medium text-gray-700">
+          Definition
+        </label>
+        <textarea
+          id="definition"
+          {...register('definition')}
+          rows={3}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+          placeholder="Enter the definition"
+        />
+        {errors.definition && (
+          <p className="mt-1 text-sm text-red-600">{errors.definition.message}</p>
+        )}
+      </div>
+
+      <div>
+        <label htmlFor="examples" className="block text-sm font-medium text-gray-700">
+          Examples (one per line)
+        </label>
+        <textarea
+          id="examples"
+          {...register('examples')}
+          rows={3}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+          placeholder="Enter examples"
+          onChange={(e) => {
+            const examples = e.target.value.split('\n').filter(Boolean)
+            setValue('examples', examples)
+          }}
+        />
+      </div>
+
+      {error && (
+        <div className="rounded-md bg-red-50 p-4">
+          <div className="flex">
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">Error</h3>
+              <div className="mt-2 text-sm text-red-700">
+                <p>{error}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-end">
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+        >
+          {isSubmitting ? 'Adding...' : 'Add Vocabulary'}
+        </button>
+      </div>
+    </form>
   )
 } 

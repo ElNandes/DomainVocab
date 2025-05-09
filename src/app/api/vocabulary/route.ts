@@ -1,26 +1,38 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    console.log('Fetching domains and vocabulary...')
+    const { searchParams } = new URL(request.url)
+    const language = searchParams.get('language') || 'en'
+    
+    console.log('Fetching vocabulary for language:', language)
+
     const domains = await prisma.domain.findMany({
       include: {
-        vocabularies: true
+        vocabularies: {
+          where: {
+            language: language
+          }
+        }
       }
     })
+
     console.log('Found domains:', domains.length)
+    console.log('Total vocabularies:', domains.reduce((acc, domain) => acc + domain.vocabularies.length, 0))
+
     return NextResponse.json(domains)
   } catch (error) {
     console.error('Error fetching vocabulary:', error)
     if (error instanceof Error) {
       console.error('Error details:', {
         message: error.message,
-        stack: error.stack
+        stack: error.stack,
+        name: error.name
       })
     }
     return NextResponse.json(
-      { error: 'Failed to fetch vocabulary' },
+      { error: 'Failed to fetch vocabulary', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }
@@ -29,7 +41,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { domainId, word, definition, examples } = body
+    const { domainId, word, definition, examples, language = 'en' } = body
 
     if (!domainId || !word || !definition) {
       return NextResponse.json(
@@ -43,6 +55,7 @@ export async function POST(request: Request) {
         word,
         definition,
         examples: examples || [],
+        language,
         domainId
       }
     })
@@ -50,8 +63,15 @@ export async function POST(request: Request) {
     return NextResponse.json(vocabulary)
   } catch (error) {
     console.error('Error creating vocabulary:', error)
+    if (error instanceof Error) {
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      })
+    }
     return NextResponse.json(
-      { error: 'Failed to create vocabulary' },
+      { error: 'Failed to create vocabulary', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }
