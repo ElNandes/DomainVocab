@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { PrismaClient } from '@prisma/client'
+
+const prisma = new PrismaClient()
 
 export async function GET() {
   try {
@@ -31,11 +33,18 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { domainId, word, definition, examples } = body
 
+    if (!domainId || !word || !definition) {
+      return NextResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400 }
+      )
+    }
+
     const vocabulary = await prisma.vocabulary.create({
       data: {
         word,
         definition,
-        examples,
+        examples: examples || [],
         domainId
       }
     })

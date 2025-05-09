@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import AddVocabulary from '@/components/add-vocabulary'
 
 type Vocabulary = {
   id: string
@@ -25,29 +26,31 @@ export default function LearnPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isSidebarVisible, setIsSidebarVisible] = useState(true)
+  const [showAddVocabulary, setShowAddVocabulary] = useState(false)
+
+  const fetchDomains = async () => {
+    try {
+      const response = await fetch('/api/vocabulary')
+      if (!response.ok) {
+        throw new Error('Failed to fetch vocabulary')
+      }
+      const data = await response.json()
+      setDomains(data)
+      setIsLoading(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
-    const fetchDomains = async () => {
-      try {
-        const response = await fetch('/api/vocabulary')
-        if (!response.ok) {
-          throw new Error('Failed to fetch vocabulary')
-        }
-        const data = await response.json()
-        setDomains(data)
-        setIsLoading(false)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred')
-        setIsLoading(false)
-      }
-    }
-
     fetchDomains()
   }, [])
 
   const handleDomainSelect = (domainId: string) => {
     setSelectedDomain(domainId)
     setCurrentWordIndex(0)
+    setShowAddVocabulary(false)
   }
 
   const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
@@ -155,42 +158,62 @@ export default function LearnPage() {
             </div>
           </div>
 
-          {/* Vocabulary Display */}
+          {/* Main Content Area */}
           <div className={`bg-white rounded-lg shadow-md overflow-hidden ${
             isSidebarVisible ? 'md:col-span-2' : 'md:col-span-1'
           }`}>
-            {selectedDomain && currentVocabulary ? (
-              <div 
-                className="h-[calc(100vh-12rem)] overflow-y-auto snap-y snap-mandatory"
-                onScroll={handleScroll}
-              >
-                {currentDomain?.vocabularies.map((vocab, index) => (
-                  <div 
-                    key={vocab.id}
-                    className="h-[calc(100vh-12rem)] snap-start flex items-center justify-center p-8"
+            {selectedDomain ? (
+              <>
+                <div className="p-4 border-b">
+                  <button
+                    onClick={() => setShowAddVocabulary(!showAddVocabulary)}
+                    className="text-primary-600 hover:text-primary-700"
                   >
-                    <div className="w-full max-w-md aspect-[9/16] bg-white rounded-xl shadow-lg p-8 flex flex-col">
-                      <div className="flex-1">
-                        <h3 className="text-3xl font-bold text-primary-700 mb-4">{vocab.word}</h3>
-                        <p className="text-gray-600 text-lg mb-6">{vocab.definition}</p>
-                        {vocab.examples.length > 0 && (
-                          <div>
-                            <p className="text-sm font-medium text-gray-700 mb-2">Examples:</p>
-                            <ul className="space-y-2">
-                              {vocab.examples.map((example: string, index: number) => (
-                                <li key={index} className="text-gray-600">{example}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-center text-sm text-gray-500 mt-4">
-                        {index + 1} of {totalWords}
-                      </div>
-                    </div>
+                    {showAddVocabulary ? 'Hide Add Vocabulary' : 'Add New Vocabulary'}
+                  </button>
+                </div>
+
+                {showAddVocabulary ? (
+                  <div className="p-4">
+                    <AddVocabulary
+                      domains={domains.map(d => ({ id: d.id, name: d.name }))}
+                      onAdd={fetchDomains}
+                    />
                   </div>
-                ))}
-              </div>
+                ) : (
+                  <div 
+                    className="h-[calc(100vh-12rem)] overflow-y-auto snap-y snap-mandatory"
+                    onScroll={handleScroll}
+                  >
+                    {currentDomain?.vocabularies.map((vocab, index) => (
+                      <div 
+                        key={vocab.id}
+                        className="h-[calc(100vh-12rem)] snap-start flex items-center justify-center p-8"
+                      >
+                        <div className="w-full max-w-md aspect-[9/16] bg-white rounded-xl shadow-lg p-8 flex flex-col">
+                          <div className="flex-1">
+                            <h3 className="text-3xl font-bold text-primary-700 mb-4">{vocab.word}</h3>
+                            <p className="text-gray-600 text-lg mb-6">{vocab.definition}</p>
+                            {vocab.examples.length > 0 && (
+                              <div>
+                                <p className="text-sm font-medium text-gray-700 mb-2">Examples:</p>
+                                <ul className="space-y-2">
+                                  {vocab.examples.map((example: string, index: number) => (
+                                    <li key={index} className="text-gray-600">{example}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-center text-sm text-gray-500 mt-4">
+                            {index + 1} of {totalWords}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             ) : (
               <div className="h-[calc(100vh-12rem)] flex items-center justify-center">
                 <p className="text-gray-600">Select a domain to view vocabulary</p>
