@@ -132,11 +132,19 @@ export default function LearnPage() {
                     stroke="currentColor"
                     className="w-5 h-5"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M12 4.5v15m7.5-7.5h-15"
-                    />
+                    {showAddDomain ? (
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M19.5 12h-15"
+                      />
+                    ) : (
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 4.5v15m7.5-7.5h-15"
+                      />
+                    )}
                   </svg>
                 </button>
                 <button
@@ -195,16 +203,18 @@ export default function LearnPage() {
           }`}>
             {selectedDomain ? (
               <>
-                <div className="p-4 border-b">
-                  <button
-                    onClick={() => setShowAddVocabulary(!showAddVocabulary)}
-                    className="text-primary-600 hover:text-primary-700"
-                  >
-                    {showAddVocabulary ? 'Hide Add Vocabulary' : 'Add New Vocabulary'}
-                  </button>
-                </div>
+                {isSidebarVisible && (
+                  <div className="p-4 border-b">
+                    <button
+                      onClick={() => setShowAddVocabulary(!showAddVocabulary)}
+                      className="text-primary-600 hover:text-primary-700"
+                    >
+                      {showAddVocabulary ? 'Hide Add Vocabulary' : 'Add New Vocabulary'}
+                    </button>
+                  </div>
+                )}
 
-                {showAddVocabulary ? (
+                {showAddVocabulary && isSidebarVisible ? (
                   <div className="p-4">
                     <AddVocabulary
                       domains={domains.map(d => ({ id: d.id, name: d.name }))}
