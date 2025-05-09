@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
 type Vocabulary = {
@@ -20,9 +20,65 @@ type Vocabularies = {
   [key: string]: Vocabulary[]
 }
 
+// Generate dummy vocabulary entries
+const generateDummyVocabularies = (): Vocabularies => {
+  const techTerms = [
+    'Algorithm', 'API', 'Cloud Computing', 'Database', 'Encryption',
+    'Firewall', 'Gateway', 'Hash', 'Interface', 'JavaScript',
+    'Kernel', 'Latency', 'Middleware', 'Network', 'Operating System',
+    'Protocol', 'Query', 'Router', 'Server', 'Token',
+    'URL', 'Virtual Machine', 'WebSocket', 'XML', 'YAML',
+    'Zero-day', 'Backend', 'Cache', 'DNS', 'Endpoint',
+    'Framework', 'GraphQL', 'Hosting', 'IP Address', 'JSON',
+    'Key-value Store', 'Load Balancer', 'Microservice', 'Node.js', 'OAuth',
+    'Proxy', 'Queue', 'REST', 'SSL', 'TypeScript'
+  ]
+
+  const businessTerms = [
+    'ROI', 'KPI', 'B2B', 'B2C', 'CRM',
+    'ERP', 'SaaS', 'PaaS', 'IaaS', 'MVP',
+    'SLA', 'SOW', 'RFP', 'RFQ', 'NDA',
+    'IPO', 'M&A', 'P&L', 'EBITDA', 'ROE',
+    'ROA', 'DCF', 'NPV', 'IRR', 'WACC',
+    'CAPEX', 'OPEX', 'COGS', 'EBIT', 'EPS',
+    'P/E Ratio', 'D/E Ratio', 'Quick Ratio', 'Current Ratio', 'Working Capital',
+    'Cash Flow', 'Balance Sheet', 'Income Statement', 'Cash Flow Statement', 'Trial Balance',
+    'General Ledger', 'Chart of Accounts', 'Double Entry', 'Accrual', 'Depreciation'
+  ]
+
+  const scienceTerms = [
+    'Hypothesis', 'Molecule', 'Atom', 'Element', 'Compound',
+    'Reaction', 'Catalyst', 'Enzyme', 'Protein', 'DNA',
+    'RNA', 'Cell', 'Tissue', 'Organ', 'System',
+    'Ecosystem', 'Species', 'Genus', 'Family', 'Order',
+    'Class', 'Phylum', 'Kingdom', 'Domain', 'Evolution',
+    'Mutation', 'Gene', 'Chromosome', 'Genome', 'Phenotype',
+    'Genotype', 'Allele', 'Dominant', 'Recessive', 'Heterozygous',
+    'Homozygous', 'Mitosis', 'Meiosis', 'Gamete', 'Zygote',
+    'Embryo', 'Fetus', 'Organism', 'Population', 'Community'
+  ]
+
+  const createVocabularyEntry = (word: string, domain: string): Vocabulary => ({
+    id: `${domain}-${word}`,
+    word,
+    definition: `Definition of ${word} in ${domain} context. This is a detailed explanation of the term and its significance.`,
+    examples: [
+      `Example 1: Using ${word} in a practical scenario.`,
+      `Example 2: Another application of ${word} in real-world context.`
+    ]
+  })
+
+  return {
+    '1': techTerms.map(term => createVocabularyEntry(term, 'Technology')),
+    '2': businessTerms.map(term => createVocabularyEntry(term, 'Business')),
+    '3': scienceTerms.map(term => createVocabularyEntry(term, 'Science'))
+  }
+}
+
 export default function LearnPage() {
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null)
   const [currentWordIndex, setCurrentWordIndex] = useState(0)
+  const [vocabularies, setVocabularies] = useState<Vocabularies>({})
 
   // Temporary mock data
   const domains: Domain[] = [
@@ -31,83 +87,23 @@ export default function LearnPage() {
     { id: '3', name: 'Science', description: 'Scientific terminology' },
   ]
 
-  const vocabularies: Vocabularies = {
-    '1': [ // Technology
-      { 
-        id: '1', 
-        word: 'Algorithm', 
-        definition: 'A set of rules or instructions given to a computer to solve a problem', 
-        examples: ['The search algorithm quickly found the relevant results.', 'Machine learning algorithms can predict user behavior.'] 
-      },
-      { 
-        id: '2', 
-        word: 'API', 
-        definition: 'Application Programming Interface - a set of rules that allows programs to talk to each other', 
-        examples: ['The app uses the Twitter API to fetch tweets.', 'Developers use APIs to integrate different services.'] 
-      },
-      { 
-        id: '3', 
-        word: 'Cloud Computing', 
-        definition: 'The delivery of computing services over the internet', 
-        examples: ['Many companies use cloud computing to store their data.', 'Cloud computing allows for flexible resource allocation.'] 
-      },
-      { 
-        id: '4', 
-        word: 'Database', 
-        definition: 'An organized collection of structured information or data', 
-        examples: ['The company database stores customer information.', 'SQL databases are commonly used for relational data.'] 
-      },
-      { 
-        id: '5', 
-        word: 'Encryption', 
-        definition: 'The process of converting information into a secure code', 
-        examples: ['Data encryption protects sensitive information.', 'End-to-end encryption ensures secure communication.'] 
-      }
-    ],
-    '2': [ // Business
-      { 
-        id: '6', 
-        word: 'ROI', 
-        definition: 'Return on Investment - a measure of the profitability of an investment', 
-        examples: ['The marketing campaign showed a positive ROI.', 'Investors analyze ROI before making decisions.'] 
-      },
-      { 
-        id: '7', 
-        word: 'KPI', 
-        definition: 'Key Performance Indicator - a measurable value that demonstrates effectiveness', 
-        examples: ['Sales growth is a key KPI for the business.', 'The team tracks multiple KPIs to measure success.'] 
-      }
-    ],
-    '3': [ // Science
-      { 
-        id: '8', 
-        word: 'Hypothesis', 
-        definition: 'A proposed explanation for a phenomenon', 
-        examples: ['The scientist developed a hypothesis about climate change.', 'The experiment was designed to test the hypothesis.'] 
-      },
-      { 
-        id: '9', 
-        word: 'Molecule', 
-        definition: 'The smallest unit of a chemical compound', 
-        examples: ['Water molecules consist of two hydrogen atoms and one oxygen atom.', 'The structure of the molecule was analyzed.'] 
-      }
-    ]
-  }
+  useEffect(() => {
+    setVocabularies(generateDummyVocabularies())
+  }, [])
 
   const handleDomainSelect = (domainId: string) => {
     setSelectedDomain(domainId)
     setCurrentWordIndex(0)
   }
 
-  const handleNext = () => {
-    if (selectedDomain && currentWordIndex < vocabularies[selectedDomain].length - 1) {
-      setCurrentWordIndex(prev => prev + 1)
-    }
-  }
-
-  const handlePrevious = () => {
-    if (currentWordIndex > 0) {
-      setCurrentWordIndex(prev => prev - 1)
+  const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    const container = event.currentTarget
+    const scrollPosition = container.scrollTop
+    const cardHeight = container.clientHeight
+    const newIndex = Math.round(scrollPosition / cardHeight)
+    
+    if (selectedDomain && newIndex !== currentWordIndex && newIndex >= 0 && newIndex < vocabularies[selectedDomain].length) {
+      setCurrentWordIndex(newIndex)
     }
   }
 
@@ -151,56 +147,43 @@ export default function LearnPage() {
 
           {/* Vocabulary Display */}
           <div className="md:col-span-2">
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <h2 className="text-xl font-semibold mb-4">Vocabulary</h2>
+            <div className="bg-white rounded-lg shadow-md overflow-hidden">
               {selectedDomain && currentVocabulary ? (
-                <div className="space-y-6">
-                  <div className="border-b pb-6">
-                    <h3 className="text-2xl font-bold text-primary-700">{currentVocabulary.word}</h3>
-                    <p className="text-gray-600 mt-2 text-lg">{currentVocabulary.definition}</p>
-                    {currentVocabulary.examples.length > 0 && (
-                      <div className="mt-4">
-                        <p className="text-sm font-medium text-gray-700">Examples:</p>
-                        <ul className="list-disc list-inside text-sm text-gray-600 mt-2">
-                          {currentVocabulary.examples.map((example: string, index: number) => (
-                            <li key={index} className="mb-1">{example}</li>
-                          ))}
-                        </ul>
+                <div 
+                  className="h-[calc(100vh-12rem)] overflow-y-auto snap-y snap-mandatory"
+                  onScroll={handleScroll}
+                >
+                  {vocabularies[selectedDomain].map((vocab, index) => (
+                    <div 
+                      key={vocab.id}
+                      className="h-[calc(100vh-12rem)] snap-start flex items-center justify-center p-8"
+                    >
+                      <div className="w-full max-w-md aspect-[9/16] bg-white rounded-xl shadow-lg p-8 flex flex-col">
+                        <div className="flex-1">
+                          <h3 className="text-3xl font-bold text-primary-700 mb-4">{vocab.word}</h3>
+                          <p className="text-gray-600 text-lg mb-6">{vocab.definition}</p>
+                          {vocab.examples.length > 0 && (
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 mb-2">Examples:</p>
+                              <ul className="space-y-2">
+                                {vocab.examples.map((example: string, index: number) => (
+                                  <li key={index} className="text-gray-600">{example}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-center text-sm text-gray-500 mt-4">
+                          {index + 1} of {totalWords}
+                        </div>
                       </div>
-                    )}
-                  </div>
-
-                  {/* Navigation */}
-                  <div className="flex justify-between items-center pt-4">
-                    <button
-                      onClick={handlePrevious}
-                      disabled={currentWordIndex === 0}
-                      className={`px-4 py-2 rounded-md ${
-                        currentWordIndex === 0
-                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                          : 'bg-primary-600 text-white hover:bg-primary-700'
-                      }`}
-                    >
-                      Previous
-                    </button>
-                    <span className="text-gray-600">
-                      {currentWordIndex + 1} of {totalWords}
-                    </span>
-                    <button
-                      onClick={handleNext}
-                      disabled={currentWordIndex === totalWords - 1}
-                      className={`px-4 py-2 rounded-md ${
-                        currentWordIndex === totalWords - 1
-                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                          : 'bg-primary-600 text-white hover:bg-primary-700'
-                      }`}
-                    >
-                      Next
-                    </button>
-                  </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
-                <p className="text-gray-600">Select a domain to view vocabulary</p>
+                <div className="h-[calc(100vh-12rem)] flex items-center justify-center">
+                  <p className="text-gray-600">Select a domain to view vocabulary</p>
+                </div>
               )}
             </div>
           </div>
