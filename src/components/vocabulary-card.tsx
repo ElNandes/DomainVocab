@@ -14,7 +14,21 @@ export function VocabularyCard({ word, definition, examples, domain, language }:
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speakingType, setSpeakingType] = useState<'word' | 'definition' | 'example' | null>(null);
   const [speakingExampleIndex, setSpeakingExampleIndex] = useState<number | null>(null);
-  const images = Array.from({ length: 5 }, (_, i) => `/images/${domain}/${word.toLowerCase()}/image${i + 1}.png`);
+
+  // Map domain names to their English equivalents for consistent image paths
+  const domainMap: { [key: string]: string } = {
+    'technologie': 'technology',
+    'technología': 'technology',
+    'geschäft': 'business',
+    'unternehmen': 'business',
+    'negocio': 'business',
+    'wissenschaft': 'science',
+    'ciencia': 'science'
+  };
+
+  // Get the English domain name for consistent image paths
+  const englishDomain = domainMap[domain.toLowerCase()] || domain.toLowerCase();
+  const images = Array.from({ length: 5 }, (_, i) => `/images/${englishDomain}/${word.toLowerCase()}/image${i + 1}.png`);
 
   useEffect(() => {
     const interval = setInterval(() => {
