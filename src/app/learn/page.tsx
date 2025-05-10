@@ -7,6 +7,7 @@ import AddVocabulary from '@/components/add-vocabulary'
 import AddDomain from '@/components/add-domain'
 import { LanguageSettings } from '@/components/language-settings'
 import { getTranslation } from '@/lib/translations'
+import { VocabularyCard } from '@/components/vocabulary-card'
 
 type Vocabulary = {
   id: string
@@ -19,13 +20,19 @@ type Vocabulary = {
 type Domain = {
   id: string
   name: string
-  description: string
-  vocabularies: Vocabulary[]
+  vocabulary: Array<{
+    id: string
+    word: string
+    definition: string
+    examples: string[]
+  }>
 }
+
+type Language = 'en' | 'de' | 'es'
 
 export default function LearnPage() {
   const router = useRouter()
-  const [selectedDomain, setSelectedDomain] = useState<string | null>(null)
+  const [selectedDomain, setSelectedDomain] = useState<Domain | null>(null)
   const [currentWordIndex, setCurrentWordIndex] = useState(0)
   const [domains, setDomains] = useState<Domain[]>([])
   const [loading, setLoading] = useState(true)
@@ -34,10 +41,11 @@ export default function LearnPage() {
   const [showAddVocabulary, setShowAddVocabulary] = useState(false)
   const [showAddDomain, setShowAddDomain] = useState(false)
   const [speakingId, setSpeakingId] = useState<string | null>(null)
-  const [currentLanguage, setCurrentLanguage] = useState<'en' | 'de' | 'es'>('en')
+  const [currentLanguage, setCurrentLanguage] = useState<Language>('en')
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const savedLanguage = localStorage.getItem('language') as 'en' | 'de' | 'es'
@@ -65,6 +73,7 @@ export default function LearnPage() {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
       const data = await response.json()
+      console.log('Fetched domains:', data)
       setDomains(data)
     } catch (err) {
       console.error('Error fetching vocabulary:', err)
@@ -79,25 +88,24 @@ export default function LearnPage() {
   }, [currentLanguage])
 
   const handleDomainSelect = (domainId: string) => {
-    setSelectedDomain(domainId)
-    setCurrentWordIndex(0)
-    setShowAddVocabulary(false)
-    setShowAddDomain(false)
+    const domain = domains.find(d => d.id === domainId)
+    console.log('Selected domain:', domain)
+    if (domain) {
+      setSelectedDomain(domain)
+      setCurrentWordIndex(0)
+      setShowAddVocabulary(false)
+      setShowAddDomain(false)
+    }
   }
 
   const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
     const container = event.currentTarget
     const scrollPosition = container.scrollTop
-    const cardHeight = container.clientHeight
-    const scrollPercentage = scrollPosition / cardHeight
-    const totalCards = currentDomain?.vocabularies.length ?? 0
+    const cardHeight = 960 // Updated height of each card
+    const newIndex = Math.round(scrollPosition / cardHeight)
     
-    if (selectedDomain && totalCards > 0) {
-      // Calculate the current index based on scroll percentage
-      const newIndex = Math.floor(scrollPercentage * totalCards)
-      if (newIndex >= 0 && newIndex < totalCards && newIndex !== currentWordIndex) {
-        setCurrentWordIndex(newIndex)
-      }
+    if (selectedDomain && newIndex >= 0 && newIndex < selectedDomain.vocabulary.length) {
+      setCurrentWordIndex(newIndex)
     }
   }
 
@@ -120,13 +128,24 @@ export default function LearnPage() {
     window.speechSynthesis.speak(utterance)
   }
 
-  const currentDomain = selectedDomain ? domains.find(d => d.id === selectedDomain) : null
-  const currentVocabulary = currentDomain?.vocabularies[currentWordIndex]
-  const totalWords = currentDomain?.vocabularies.length ?? 0
+  const currentVocabulary = selectedDomain?.vocabulary?.[currentWordIndex] ?? null
+  const totalWords = selectedDomain?.vocabulary?.length ?? 0
 
   const handleBackToHome = (e: React.MouseEvent) => {
     e.preventDefault()
     router.push('/')
+  }
+
+  const handleNextWord = () => {
+    if (selectedDomain && currentWordIndex < selectedDomain.vocabulary.length - 1) {
+      setCurrentWordIndex(prev => prev + 1)
+    }
+  }
+
+  const handlePreviousWord = () => {
+    if (selectedDomain && currentWordIndex > 0) {
+      setCurrentWordIndex(prev => prev - 1)
+    }
   }
 
   if (loading) {
@@ -251,13 +270,15 @@ export default function LearnPage() {
                       key={domain.id}
                       onClick={() => handleDomainSelect(domain.id)}
                       className={`w-full text-left p-3 rounded-md transition-colors ${
-                        selectedDomain === domain.id
+                        selectedDomain?.id === domain.id
                           ? 'bg-primary-100 text-primary-900'
                           : 'hover:bg-gray-100'
                       }`}
                     >
                       <h3 className="font-medium">{domain.name}</h3>
-                      <p className="text-sm text-gray-600">{domain.description}</p>
+                      <p className="text-sm text-gray-500">
+                        {domain.vocabulary?.length ?? 0} terms
+                      </p>
                     </button>
                   ))}
                 </div>
@@ -291,104 +312,32 @@ export default function LearnPage() {
                     />
                   </div>
                 ) : (
-                  <div 
-                    className="h-[calc(100vh-12rem)] overflow-y-auto"
-                    onScroll={handleScroll}
-                  >
-                    {currentDomain?.vocabularies.map((vocab, index) => (
+                  <div className="flex flex-col h-[calc(100vh-12rem)]">
+                    {selectedDomain?.vocabulary?.length === 0 ? (
+                      <div className="flex-1 flex items-center justify-center">
+                        <p className="text-gray-500">No vocabulary terms found. Add some terms to get started!</p>
+                      </div>
+                    ) : (
                       <div 
-                        key={vocab.id}
-                        className="h-[calc(100vh-12rem)] flex items-center justify-center p-8"
+                        ref={containerRef}
+                        className="flex-1 overflow-y-auto snap-y snap-mandatory"
+                        onScroll={handleScroll}
                       >
-                        <div className="w-full max-w-md aspect-[9/16] bg-white rounded-xl shadow-lg p-8 flex flex-col">
-                          <div className="flex-1">
-                            <div className="flex justify-between items-start mb-4">
-                              <h3 className="text-3xl font-bold text-primary-700">{vocab.word}</h3>
-                              <button
-                                onClick={() => handleSpeak(vocab.definition, `def-${vocab.id}`)}
-                                className={`p-2 rounded-full transition-colors ${
-                                  speakingId === `def-${vocab.id}` ? 'bg-primary-100' : 'hover:bg-gray-100'
-                                }`}
-                                title={speakingId === `def-${vocab.id}` ? getTranslation('stop-reading', currentLanguage) : getTranslation('read-definition', currentLanguage)}
-                              >
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                  strokeWidth={1.5}
-                                  stroke="currentColor"
-                                  className={`w-6 h-6 ${
-                                    speakingId === `def-${vocab.id}` ? 'text-primary-700' : 'text-primary-600'
-                                  }`}
-                                >
-                                  {speakingId === `def-${vocab.id}` ? (
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      d="M5.25 7.5A2.25 2.25 0 017.5 5.25h9a2.25 2.25 0 012.25 2.25v9a2.25 2.25 0 01-2.25 2.25h-9a2.25 2.25 0 01-2.25-2.25v-9z"
-                                    />
-                                  ) : (
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z"
-                                    />
-                                  )}
-                                </svg>
-                              </button>
+                        <div className="flex flex-col items-center space-y-12 py-12">
+                          {selectedDomain?.vocabulary?.map((vocab, index) => (
+                            <div key={vocab.id} className="snap-start">
+                              <VocabularyCard
+                                word={vocab.word}
+                                definition={vocab.definition}
+                                examples={vocab.examples}
+                                domain={selectedDomain.name.toLowerCase()}
+                                language={currentLanguage}
+                              />
                             </div>
-                            <p className="text-gray-600 text-lg mb-6">{vocab.definition}</p>
-                            {vocab.examples.length > 0 && (
-                              <div>
-                                <p className="text-sm font-medium text-gray-700 mb-2">{getTranslation('examples', currentLanguage)}:</p>
-                                <ul className="space-y-2">
-                                  {vocab.examples.map((example: string, index: number) => (
-                                    <li key={index} className="flex items-start gap-2 text-gray-600">
-                                      <span className="flex-1">{example}</span>
-                                      <button
-                                        onClick={() => handleSpeak(example, `ex-${vocab.id}-${index}`)}
-                                        className={`p-1.5 rounded-full transition-colors ${
-                                          speakingId === `ex-${vocab.id}-${index}` ? 'bg-primary-100' : 'hover:bg-gray-100'
-                                        }`}
-                                        title={speakingId === `ex-${vocab.id}-${index}` ? getTranslation('stop-reading', currentLanguage) : getTranslation('read-example', currentLanguage)}
-                                      >
-                                        <svg
-                                          xmlns="http://www.w3.org/2000/svg"
-                                          fill="none"
-                                          viewBox="0 0 24 24"
-                                          strokeWidth={1.5}
-                                          stroke="currentColor"
-                                          className={`w-4 h-4 ${
-                                            speakingId === `ex-${vocab.id}-${index}` ? 'text-primary-700' : 'text-primary-600'
-                                          }`}
-                                        >
-                                          {speakingId === `ex-${vocab.id}-${index}` ? (
-                                            <path
-                                              strokeLinecap="round"
-                                              strokeLinejoin="round"
-                                              d="M5.25 7.5A2.25 2.25 0 017.5 5.25h9a2.25 2.25 0 012.25 2.25v9a2.25 2.25 0 01-2.25 2.25h-9a2.25 2.25 0 01-2.25-2.25v-9z"
-                                            />
-                                          ) : (
-                                            <path
-                                              strokeLinecap="round"
-                                              strokeLinejoin="round"
-                                              d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z"
-                                            />
-                                          )}
-                                        </svg>
-                                      </button>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                          </div>
-                          <div className="text-center text-sm text-gray-500 mt-4">
-                            {index + 1} of {totalWords}
-                          </div>
+                          ))}
                         </div>
                       </div>
-                    ))}
+                    )}
                   </div>
                 )}
               </>

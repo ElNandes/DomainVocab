@@ -19,9 +19,24 @@ export async function GET(request: Request) {
     })
 
     console.log('Found domains:', domains.length)
+    console.log('Domains data:', JSON.stringify(domains, null, 2))
     console.log('Total vocabularies:', domains.reduce((acc, domain) => acc + domain.vocabularies.length, 0))
 
-    return NextResponse.json(domains)
+    // Transform the data to match the expected format
+    const transformedDomains = domains.map(domain => ({
+      id: domain.id,
+      name: domain.name,
+      vocabulary: domain.vocabularies.map(vocab => ({
+        id: vocab.id,
+        word: vocab.word,
+        definition: vocab.definition,
+        examples: vocab.examples
+      }))
+    }))
+
+    console.log('Transformed domains:', JSON.stringify(transformedDomains, null, 2))
+
+    return NextResponse.json(transformedDomains)
   } catch (error) {
     console.error('Error fetching vocabulary:', error)
     if (error instanceof Error) {
