@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
+import { getTranslation } from '@/lib/translations'
 
 type DictionaryResponse = {
   word: string
@@ -28,94 +29,138 @@ type AddVocabularyProps = {
   currentLanguage: string
 }
 
-const schema = z.object({
+const formSchema = z.object({
   domainId: z.string().min(1, 'Please select a domain'),
   word: z.string().min(1, 'Word is required'),
   definition: z.string().min(1, 'Definition is required'),
-  examples: z.array(z.string()).optional(),
+  examples: z.array(z.string()).min(1, 'At least one example is required'),
 })
 
-type FormData = z.infer<typeof schema>
+type FormData = z.infer<typeof formSchema>
 
 export default function AddVocabulary({ domains, onAdd, currentLanguage }: AddVocabularyProps) {
   const [isSearching, setIsSearching] = useState(false)
-  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [searchResults, setSearchResults] = useState<Array<{ word: string; definition: string }>>([])
   const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const {
     register,
     handleSubmit,
     setValue,
     watch,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<FormData>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      examples: [''],
+    },
   })
 
-  const wordValue = watch('word')
+  const examples = watch('examples')
 
-  const searchWord = async (word: string) => {
-    if (!word.trim()) return
+  const handleExampleChange = (index: number, value: string) => {
+    const newExamples = [...examples]
+    newExamples[index] = value
+    setValue('examples', newExamples)
+  }
+
+  const addExample = () => {
+    setValue('examples', [...examples, ''])
+  }
+
+  const removeExample = (index: number) => {
+    setValue('examples', examples.filter((_, i) => i !== index))
+  }
+
+  const searchWord = async (searchTerm: string) => {
+    if (!searchTerm?.trim()) return
+
     setIsSearching(true)
     setError(null)
     try {
-      const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`)
+      const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${searchTerm.trim()}`)
       if (!response.ok) {
         throw new Error('Word not found')
       }
       const data = await response.json()
-      setSearchResults(data)
-    } catch (err) {
-      setError('Word not found in dictionary. Please enter the definition manually.')
+      setSearchResults(data.map((entry: any) => ({
+        word: entry.word,
+        definition: entry.meanings[0]?.definitions[0]?.definition || '',
+      })))
+    } catch (error) {
+      setError('Failed to fetch definition. Please enter manually.')
       setSearchResults([])
+    } finally {
+      setIsSearching(false)
     }
-    setIsSearching(false)
   }
 
   const onSubmit = async (data: FormData) => {
+    setIsSubmitting(true)
+    setError(null)
+
     try {
-      console.log('Submitting form data:', data)
+      // Get translations for all languages
+      const translations = await Promise.all(
+        ['en', 'de', 'es'].map(async (lang) => {
+          if (lang === 'en') {
+            return {
+              language: lang,
+              word: data.word,
+              definition: data.definition,
+              examples: data.examples,
+              domainId: data.domainId,
+            }
+          }
+
+          const [translatedWord, translatedDef, translatedExamples] = await Promise.all([
+            getTranslation(data.word, lang),
+            getTranslation(data.definition, lang),
+            Promise.all(data.examples.map(example => getTranslation(example, lang))),
+          ])
+
+          return {
+            language: lang,
+            word: translatedWord,
+            definition: translatedDef,
+            examples: translatedExamples,
+            domainId: data.domainId,
+          }
+        })
+      )
+
       const response = await fetch('/api/vocabulary', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...data,
-          language: currentLanguage,
-        }),
+        body: JSON.stringify({ translations }),
       })
 
       if (!response.ok) {
         const errorData = await response.json()
-        console.error('Server error:', errorData)
         throw new Error(errorData.error || 'Failed to add vocabulary')
       }
 
-      const result = await response.json()
-      console.log('Successfully added vocabulary:', result)
-
       onAdd()
-      setValue('word', '')
-      setValue('definition', '')
-      setValue('examples', [])
-      setSearchResults([])
-    } catch (err) {
-      console.error('Error submitting form:', err)
-      setError(err instanceof Error ? err.message : 'An error occurred')
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to add vocabulary')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div>
-        <label htmlFor="domainId" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="domain" className="block text-sm font-medium text-gray-700">
           Domain
         </label>
         <select
-          id="domainId"
+          id="domain"
           {...register('domainId')}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
         >
           <option value="">Select a domain</option>
           {domains.map((domain) => (
@@ -138,14 +183,13 @@ export default function AddVocabulary({ domains, onAdd, currentLanguage }: AddVo
             type="text"
             id="word"
             {...register('word')}
-            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-            placeholder="Enter a word"
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           />
           <button
             type="button"
-            onClick={() => searchWord(wordValue)}
-            disabled={isSearching}
-            className="ml-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+            onClick={() => searchWord(watch('word'))}
+            disabled={isSearching || !watch('word')?.trim()}
+            className="ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
           >
             {isSearching ? 'Searching...' : 'Search'}
           </button>
@@ -156,28 +200,23 @@ export default function AddVocabulary({ domains, onAdd, currentLanguage }: AddVo
       </div>
 
       {searchResults.length > 0 && (
-        <div className="mt-4">
-          <h3 className="text-lg font-medium text-gray-900">Search Results</h3>
-          <div className="mt-2 space-y-4">
+        <div className="rounded-md bg-gray-50 p-4">
+          <h4 className="text-sm font-medium text-gray-900">Search Results</h4>
+          <div className="mt-2 space-y-2">
             {searchResults.map((result, index) => (
-              <div
+              <button
                 key={index}
-                className="p-4 border rounded-md cursor-pointer hover:bg-gray-50"
+                type="button"
                 onClick={() => {
                   setValue('word', result.word)
-                  setValue('definition', result.meanings[0].definitions[0].definition)
-                  setValue('examples', [result.meanings[0].definitions[0].example].filter(Boolean))
+                  setValue('definition', result.definition)
                   setSearchResults([])
                 }}
+                className="block w-full text-left rounded-md p-2 hover:bg-gray-100"
               >
-                <h4 className="font-medium">{result.word}</h4>
-                <p className="text-sm text-gray-600">{result.meanings[0].definitions[0].definition}</p>
-                {result.meanings[0].definitions[0].example && (
-                  <p className="text-sm text-gray-500 mt-1">
-                    Example: {result.meanings[0].definitions[0].example}
-                  </p>
-                )}
-              </div>
+                <div className="font-medium">{result.word}</div>
+                <div className="text-sm text-gray-500">{result.definition}</div>
+              </button>
             ))}
           </div>
         </div>
@@ -189,10 +228,9 @@ export default function AddVocabulary({ domains, onAdd, currentLanguage }: AddVo
         </label>
         <textarea
           id="definition"
-          {...register('definition')}
           rows={3}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-          placeholder="Enter the definition"
+          {...register('definition')}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
         />
         {errors.definition && (
           <p className="mt-1 text-sm text-red-600">{errors.definition.message}</p>
@@ -200,19 +238,38 @@ export default function AddVocabulary({ domains, onAdd, currentLanguage }: AddVo
       </div>
 
       <div>
-        <label htmlFor="examples" className="block text-sm font-medium text-gray-700">
-          Examples (one per line)
-        </label>
-        <textarea
-          id="examples"
-          rows={3}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-          placeholder="Enter examples"
-          onChange={(e) => {
-            const examples = e.target.value.split('\n').filter(Boolean)
-            setValue('examples', examples)
-          }}
-        />
+        <label className="block text-sm font-medium text-gray-700">Examples</label>
+        <div className="mt-2 space-y-2">
+          {examples.map((example, index) => (
+            <div key={index} className="flex gap-2">
+              <input
+                type="text"
+                value={example}
+                onChange={(e) => handleExampleChange(index, e.target.value)}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+              {examples.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeExample(index)}
+                  className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={addExample}
+            className="mt-2 inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          >
+            Add Example
+          </button>
+        </div>
+        {errors.examples && (
+          <p className="mt-1 text-sm text-red-600">{errors.examples.message}</p>
+        )}
       </div>
 
       {error && (
@@ -220,9 +277,7 @@ export default function AddVocabulary({ domains, onAdd, currentLanguage }: AddVo
           <div className="flex">
             <div className="ml-3">
               <h3 className="text-sm font-medium text-red-800">Error</h3>
-              <div className="mt-2 text-sm text-red-700">
-                <p>{error}</p>
-              </div>
+              <div className="mt-2 text-sm text-red-700">{error}</div>
             </div>
           </div>
         </div>
@@ -232,7 +287,7 @@ export default function AddVocabulary({ domains, onAdd, currentLanguage }: AddVo
         <button
           type="submit"
           disabled={isSubmitting}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+          className="inline-flex items-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
         >
           {isSubmitting ? 'Adding...' : 'Add Vocabulary'}
         </button>

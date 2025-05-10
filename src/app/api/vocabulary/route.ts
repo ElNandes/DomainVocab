@@ -12,10 +12,10 @@ export async function GET(request: Request) {
       include: {
         vocabularies: {
           where: {
-            language: language
-          }
-        }
-      }
+            language,
+          },
+        },
+      },
     })
 
     console.log('Found domains:', domains.length)
@@ -30,8 +30,9 @@ export async function GET(request: Request) {
         id: vocab.id,
         word: vocab.word,
         definition: vocab.definition,
-        examples: vocab.examples
-      }))
+        examples: vocab.examples,
+        language: vocab.language,
+      })),
     }))
 
     console.log('Transformed domains:', JSON.stringify(transformedDomains, null, 2))
@@ -55,27 +56,37 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
-    const { domainId, word, definition, examples, language = 'en' } = body
+    const { translations } = await request.json()
 
-    if (!domainId || !word || !definition) {
+    if (!translations || !Array.isArray(translations)) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Invalid request: translations array is required' },
         { status: 400 }
       )
     }
 
-    const vocabulary = await prisma.vocabulary.create({
-      data: {
-        word,
-        definition,
-        examples: examples || [],
-        language,
-        domainId
-      }
-    })
+    // Create vocabulary entries for each language
+    const createdEntries = await Promise.all(
+      translations.map(async (translation) => {
+        const { language, word, definition, examples, domainId } = translation
 
-    return NextResponse.json(vocabulary)
+        if (!language || !word || !definition || !domainId) {
+          throw new Error(`Missing required fields for ${language} translation`)
+        }
+
+        return prisma.vocabulary.create({
+          data: {
+            word,
+            definition,
+            examples: examples || [],
+            language,
+            domainId,
+          },
+        })
+      })
+    )
+
+    return NextResponse.json(createdEntries)
   } catch (error) {
     console.error('Error creating vocabulary:', error)
     if (error instanceof Error) {
@@ -86,7 +97,7 @@ export async function POST(request: Request) {
       })
     }
     return NextResponse.json(
-      { error: 'Failed to create vocabulary', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: error instanceof Error ? error.message : 'Failed to create vocabulary' },
       { status: 500 }
     )
   }
