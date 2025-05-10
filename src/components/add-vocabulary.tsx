@@ -74,6 +74,7 @@ export default function AddVocabulary({ domains, onAdd, currentLanguage }: AddVo
 
   const onSubmit = async (data: FormData) => {
     try {
+      console.log('Submitting form data:', data)
       const response = await fetch('/api/vocabulary', {
         method: 'POST',
         headers: {
@@ -86,8 +87,13 @@ export default function AddVocabulary({ domains, onAdd, currentLanguage }: AddVo
       })
 
       if (!response.ok) {
-        throw new Error('Failed to add vocabulary')
+        const errorData = await response.json()
+        console.error('Server error:', errorData)
+        throw new Error(errorData.error || 'Failed to add vocabulary')
       }
+
+      const result = await response.json()
+      console.log('Successfully added vocabulary:', result)
 
       onAdd()
       setValue('word', '')
@@ -95,6 +101,7 @@ export default function AddVocabulary({ domains, onAdd, currentLanguage }: AddVo
       setValue('examples', [])
       setSearchResults([])
     } catch (err) {
+      console.error('Error submitting form:', err)
       setError(err instanceof Error ? err.message : 'An error occurred')
     }
   }
@@ -198,7 +205,6 @@ export default function AddVocabulary({ domains, onAdd, currentLanguage }: AddVo
         </label>
         <textarea
           id="examples"
-          {...register('examples')}
           rows={3}
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
           placeholder="Enter examples"
